@@ -8,6 +8,7 @@
 1. 点击 **"全部订单"** 按钮
 2. 点击 **"导出"** 按钮
 3. 点击 **"提交"** 按钮
+4. 自动处理文件保存对话框，填入文件名并保存到指定路径
 
 ## 功能特点
 
@@ -17,6 +18,8 @@
 | **录制模式** | 首次运行通过交互式录制按钮位置，简单直观 |
 | **循环执行** | 支持定时重复执行，适合需要周期性导出的场景 |
 | **自动启动应用** | 如应用未运行，会自动启动桌面快捷方式 |
+| **自动保存文件** | 点击提交后自动处理文件保存对话框，支持自定义路径和文件名 |
+| **日期文件名** | 文件名支持日期模板（如 `订单_{date}.xlsx` → `订单_20260319.xlsx`） |
 | **安全保护** | 内置 FAILSAFE 机制，鼠标移至屏幕左上角可紧急终止 |
 
 ## 环境要求
@@ -82,6 +85,8 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
 |------|------|
 | `--record` | 录制模式，记录三个按钮的鼠标点击位置 |
 | `--interval-seconds <秒数>` | 循环执行模式，按指定秒数间隔重复执行 |
+| `--save-dir <路径>` | 指定文件保存目录（如 `D:\Orders`） |
+| `--filename <模板>` | 指定文件名模板，支持 `{date}` 占位符（如 `订单_{date}.xlsx`） |
 
 ## 配置文件
 
@@ -106,6 +111,26 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
 
 - `rel_x`: 按钮中心相对于窗口宽度的比例（0-1）
 - `rel_y`: 按钮中心相对于窗口高度的比例（0-1）
+
+### 文件保存配置
+
+脚本内置了文件保存配置（位于脚本第 36-41 行）：
+
+```python
+SAVE_CONFIG = {
+    "directory": r"C:\Orders\Export",           # 保存目录
+    "filename_template": "顺发订单_{date}.xlsx",  # 文件名模板
+    "dialog_timeout": 10,                        # 等待对话框超时(秒)
+    "save_button_timeout": 5,                    # 等待保存完成超时(秒)
+}
+```
+
+**文件名模板说明**：
+- `{date}` 会被替换为当前日期（格式：YYYYMMDD）
+- 示例：`顺发订单_{date}.xlsx` → `顺发订单_20260319.xlsx`
+- 示例：`订单_{date}.csv` → `订单_20260319.csv`
+
+可通过命令行参数临时覆盖保存目录和文件名模板。
 
 ## 常见问题
 
@@ -132,12 +157,55 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
 ### Q: 窗口标题不是"顺发"怎么办？
 **A:** 修改脚本第29行的 `WINDOW_TITLE_HINT` 为正确的标题关键字。
 
+### Q: 如何修改文件保存路径？
+**A:** 有两种方式：
+1. **临时修改**：使用命令行参数 `--save-dir`，如：
+   ```bash
+   python sf_open_monthly_settlement_nav.py --save-dir "D:\MyOrders"
+   ```
+2. **永久修改**：编辑脚本第 37 行的 `directory` 值
+
+### Q: 如何自定义文件名格式？
+**A:** 有两种方式：
+1. **临时修改**：使用命令行参数 `--filename`，如：
+   ```bash
+   python sf_open_monthly_settlement_nav.py --filename "订单_{date}.xlsx"
+   ```
+2. **永久修改**：编辑脚本第 38 行的 `filename_template` 值
+
+### Q: 文件保存对话框处理失败？
+**A:** 检查以下几点：
+1. 确保顺发应用正常弹出了"另存为"对话框
+2. 检查保存目录路径是否正确且有写入权限
+3. 如对话框标题不是"另存为"，可能需要修改脚本第 191 行的 `dialog_titles` 列表
+
+### Q: 文件已存在时如何处理？
+**A:** Windows 文件保存对话框会提示是否覆盖。如需自动覆盖，可修改脚本或手动处理。
+
 ## 注意事项
 
 1. 执行过程中请勿移动顺发窗口或调整其大小
 2. 确保录制时窗口处于最大化状态
 3. 建议在顺发打单应用无弹窗、无异常状态下运行
 4. 循环执行模式下请确保系统不会进入休眠
+5. 首次运行前确保保存目录存在或有创建目录的权限
+6. 如文件已存在，Windows 会提示覆盖，需手动处理
+
+## 使用示例
+
+```bash
+# 基本使用（使用默认保存配置）
+python sf_open_monthly_settlement_nav.py
+
+# 自定义保存目录
+python sf_open_monthly_settlement_nav.py --save-dir "D:\订单导出"
+
+# 自定义文件名格式
+python sf_open_monthly_settlement_nav.py --filename "每日订单_{date}.xlsx"
+
+# 组合使用 - 每10分钟执行一次，保存到指定目录
+python sf_open_monthly_settlement_nav.py --interval-seconds 600 --save-dir "D:\Orders"
+```
 
 ## 技术实现
 
@@ -145,7 +213,7 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
 
 | 库 | 用途 |
 |------|------|
-| `pywinauto` | Windows 窗口查找、控制和管理 |
+| `pywinauto` | Windows 窗口查找、控制和管理，处理文件保存对话框 |
 | `pyautogui` | 鼠标移动和点击模拟 |
 | `pywin32` | Windows API 调用，启动快捷方式 |
 
@@ -163,7 +231,30 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
   2. 移动鼠标到目标位置
   3. 执行点击
   4. 等待间隔时间
+      ↓
+点击"提交"后处理文件保存对话框:
+  1. 等待"另存为"对话框出现
+  2. 聚焦对话框
+  3. 生成文件名（含日期）
+  4. 输入完整路径到文件名框
+  5. 发送回车键保存
 ```
+
+### 文件保存对话框处理原理
+
+脚本采用 **pywinauto + 键盘输入** 混合方案：
+
+1. **查找对话框**：枚举所有可见窗口，查找标题包含"另存为"/"Save As"/"保存"的窗口
+2. **聚焦对话框**：使用 `set_focus()` 将对话框置前
+3. **输入路径**：
+   - 优先尝试直接定位文件名输入框控件并设置文本
+   - 如果控件定位失败，使用键盘输入（Ctrl+A 全选 → 输入路径）
+4. **确认保存**：点击保存按钮或发送回车键
+
+这种方案的优势：
+- 无需录制对话框控件坐标
+- 兼容不同版本的 Windows 文件对话框
+- 路径和文件名可灵活配置
 
 ## 许可证
 
@@ -171,4 +262,5 @@ python sf_open_monthly_settlement_nav.py --interval-seconds 600
 
 ---
 
-**更新日期**: 2026-03-18
+**更新日期**: 2026-03-19
+**版本**: v2.0 - 新增文件保存对话框自动处理功能
